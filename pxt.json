@@ -1,0 +1,50 @@
+{
+    "name": "wuerfelwiese",
+    "description": "Eine kleine Blockwelt in echtem 3D für den Calliope mini 3 mit GameKit: erkunden, abbauen, bauen und Kristalle sammeln.",
+    "license": "MIT",
+    "dependencies": {
+        "device": "*",
+        "settings": "*",
+        "hw---n3": "*"
+    },
+    "files": [
+        "einstellungen.ts",
+        "welt.ts",
+        "strahlen.ts",
+        "film.ts",
+        "ton.ts",
+        "training.ts",
+        "hacker.ts",
+        "main.ts",
+        "README.md"
+    ],
+    "preferredEditor": "tsprj",
+    "palette": [
+        "#000000",
+        "#fff4de",
+        "#df5652",
+        "#f5a27b",
+        "#e6974a",
+        "#ffda76",
+        "#42745b",
+        "#8fbd55",
+        "#25476c",
+        "#9ad7df",
+        "#9a75ab",
+        "#7c8b91",
+        "#3c4653",
+        "#d3c7ad",
+        "#886044",
+        "#101724"
+    ],
+    "screenSize": {
+        "width": 160,
+        "height": 120
+    },
+    "targetVersions": {
+        "branch": "master",
+        "tag": "v4.2.1",
+        "target": "4.2.1",
+        "pxt": "13.2.1"
+    }
+}

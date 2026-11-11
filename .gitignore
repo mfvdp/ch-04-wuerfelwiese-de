@@ -1,0 +1,6 @@
+node_modules/
+pxt_modules/
+.pxt/
+built/
+*.log
+dist/
