@@ -518,7 +518,7 @@ function zeichneTitel(leinwand: Image) {
     // nach dem Namen.
     if (!titelSchriftzug) {
         titelSchriftzug = image.create(160, 30)
-        zeichneBuchstaben(titelSchriftzug, filmTitelBild, 2, titelMassstab(136), 100000, -10, true, -1)
+        zeichneBuchstaben(titelSchriftzug, filmTitelBild, 2, titelMassstab(136), 100000, -10240, true, -1)
     }
     leinwand.drawTransparentImage(titelSchriftzug, 0, 13)
     // Der Calliope Hacker am Schreibtisch, vor einer Wand in der Farbe hacker.WANDFARBE.

@@ -1,8 +1,11 @@
 // Das Intro mit Studiokarte und Titel.
 // Eine zusammenhängende Reise von 22 Sekunden durch eine kleine 3D-Kulisse, die nur für den Film gebaut wird. Sie
-// verändert die Welt nicht, braucht weder Videos noch Sprites und legt in keinem Einzelbild neue Bilder an. Ablauf:
-// Flug zwischen den Inseln, das Tor lädt sich auf, Flug durch das Tor (zusammen heißt diese erste Station Flug), dann
-// die Karte „Calliope Hacker präsentiert“ über der Zielinsel und zuletzt der Spieltitel.
+// verändert die Welt nicht, braucht weder Videos noch Sprites und legt in keinem Einzelbild neue Bilder an. Gerechnet
+// wird mit ganzen Zahlen: Orte in der Welt sowie Sinus und Kosinus in 1024steln, Punkte auf dem Bildschirm in 16teln
+// eines Pixels. Der Calliope legt für jede Kommazahl ein kleines Objekt im Speicher an. Bei Tausenden davon in jedem
+// Bild musste er ständig aufräumen, und das Intro stockte. Ablauf: Flug zwischen den Inseln, das Tor lädt sich auf,
+// Flug durch das Tor (zusammen heißt diese erste Station Flug), dann die Karte „Calliope Hacker präsentiert“ über der
+// Zielinsel und zuletzt der Spieltitel.
 let filmFertig = false
 let filmZeitMs = 0
 let filmKapitel = 0
@@ -40,15 +43,15 @@ let filmFlaechen = [0, 2, 3, 1, 4, 5, 7, 6, 0, 1, 5, 4, 2, 6, 7, 3, 0, 4, 6, 2, 
 let filmFlaechenReihe = [0, 0, 0]
 let filmFlaechenAbstand = [0, 0, 0]
 let filmKameraX = 0
-let filmKameraY = 3
+let filmKameraY = 3072
 let filmKameraZ = 0
 let filmSinDrehung = 0
-let filmCosDrehung = 1
+let filmCosDrehung = 1024
 let filmSinNeigung = 0
-let filmCosNeigung = 1
+let filmCosNeigung = 1024
 let filmSinKipp = 0
-let filmCosKipp = 1
-let filmBrennweite = 92
+let filmCosKipp = 1024
+let filmBrennweite = 1472
 let filmBildX = 0
 let filmBildY = 0
 let filmTiefe = 0
@@ -56,12 +59,12 @@ let filmAbend = false
 
 function fuegeKastenHinzu(x: number, y: number, z: number,
     breite: number, hoehe: number, tiefe: number, art: number) {
-    filmKastenX.push(x)
-    filmKastenY.push(y)
-    filmKastenZ.push(z)
-    filmKastenBreite.push(breite)
-    filmKastenHoehe.push(hoehe)
-    filmKastenTiefe.push(tiefe)
+    filmKastenX.push(Math.round(x * 1024))
+    filmKastenY.push(Math.round(y * 1024))
+    filmKastenZ.push(Math.round(z * 1024))
+    filmKastenBreite.push(Math.round(breite * 512))
+    filmKastenHoehe.push(Math.round(hoehe * 512))
+    filmKastenTiefe.push(Math.round(tiefe * 512))
     filmKastenArt.push(art)
     filmKastenReihe.push(0)
     filmKastenAbstand.push(0)
@@ -93,8 +96,8 @@ function bereiteFilmVor() {
     filmTitelBild = image.create(TITEL.length * 6, 8)
     filmTitelBild.print(TITEL, 0, 0, 1, image.font8)
     for (let i = 0; i <= 24; i++) {
-        filmRingX.push(Math.cos(i * Math.PI / 12))
-        filmRingY.push(Math.sin(i * Math.PI / 12))
+        filmRingX.push(Math.round(Math.cos(i * Math.PI / 12) * 1024))
+        filmRingY.push(Math.round(Math.sin(i * Math.PI / 12) * 1024))
     }
     for (let i = 0; i < 8; i++) {
         filmEckeX.push(0)
@@ -171,30 +174,30 @@ function glaette(wert: number): number {
 }
 
 function setzeFilmKamera(x: number, y: number, z: number, drehung: number, neigung: number, kipp: number) {
-    filmKameraX = x
-    filmKameraY = y
-    filmKameraZ = z
-    filmSinDrehung = Math.sin(drehung)
-    filmCosDrehung = Math.cos(drehung)
-    filmSinNeigung = Math.sin(neigung)
-    filmCosNeigung = Math.cos(neigung)
-    filmSinKipp = Math.sin(kipp)
-    filmCosKipp = Math.cos(kipp)
+    filmKameraX = Math.round(x * 1024)
+    filmKameraY = Math.round(y * 1024)
+    filmKameraZ = Math.round(z * 1024)
+    filmSinDrehung = Math.round(Math.sin(drehung) * 1024)
+    filmCosDrehung = Math.round(Math.cos(drehung) * 1024)
+    filmSinNeigung = Math.round(Math.sin(neigung) * 1024)
+    filmCosNeigung = Math.round(Math.cos(neigung) * 1024)
+    filmSinKipp = Math.round(Math.sin(kipp) * 1024)
+    filmCosKipp = Math.round(Math.cos(kipp) * 1024)
 }
 
 function projiziere(x: number, y: number, z: number) {
     let dx = x - filmKameraX
     let dy = y - filmKameraY
     let dz = z - filmKameraZ
-    let gedrehtX = dx * filmCosDrehung - dz * filmSinDrehung
-    let gedrehtZ = dz * filmCosDrehung + dx * filmSinDrehung
-    let gedrehtY = dy * filmCosNeigung - gedrehtZ * filmSinNeigung
-    filmTiefe = gedrehtZ * filmCosNeigung + dy * filmSinNeigung
-    let massstab = filmBrennweite / Math.max(0.5, filmTiefe)
-    let schirmX = gedrehtX * massstab
-    let schirmY = -gedrehtY * massstab
-    filmBildX = 80 + schirmX * filmCosKipp - schirmY * filmSinKipp
-    filmBildY = 57 + schirmY * filmCosKipp + schirmX * filmSinKipp
+    let gedrehtX = (dx * filmCosDrehung - dz * filmSinDrehung) >> 10
+    let gedrehtZ = (dz * filmCosDrehung + dx * filmSinDrehung) >> 10
+    let gedrehtY = (dy * filmCosNeigung - gedrehtZ * filmSinNeigung) >> 10
+    filmTiefe = (gedrehtZ * filmCosNeigung + dy * filmSinNeigung) >> 10
+    let massstab = Math.max(512, filmTiefe)
+    let schirmX = Math.idiv(gedrehtX * filmBrennweite, massstab)
+    let schirmY = -Math.idiv(gedrehtY * filmBrennweite, massstab)
+    filmBildX = 1280 + ((schirmX * filmCosKipp - schirmY * filmSinKipp) >> 10)
+    filmBildY = 912 + ((schirmY * filmCosKipp + schirmX * filmSinKipp) >> 10)
 }
 
 // Dreiecke füllt MakeCode selbst (fillTriangle), schnell und mit ganzen Zahlen; was über den Bildrand ragt, schneidet
@@ -212,11 +215,11 @@ function zeichneFlaeche(leinwand: Image, flaeche: number, farbe: number, kantenF
     let eckeB = filmFlaechen[ersteEcke + 1]
     let eckeC = filmFlaechen[ersteEcke + 2]
     let eckeD = filmFlaechen[ersteEcke + 3]
-    fuelleDreieck(leinwand,
+    leinwand.fillTriangle(
         filmEckeX[eckeA], filmEckeY[eckeA],
         filmEckeX[eckeB], filmEckeY[eckeB],
         filmEckeX[eckeC], filmEckeY[eckeC], farbe)
-    fuelleDreieck(leinwand,
+    leinwand.fillTriangle(
         filmEckeX[eckeA], filmEckeY[eckeA],
         filmEckeX[eckeC], filmEckeY[eckeC],
         filmEckeX[eckeD], filmEckeY[eckeD], farbe)
@@ -243,29 +246,29 @@ function zeichneKasten(leinwand: Image, kasten: number) {
     let y = filmKastenY[kasten]
     let z = filmKastenZ[kasten]
     let art = filmKastenArt[kasten]
-    let halbBreite = filmKastenBreite[kasten] * 0.5
-    let halbHoehe = filmKastenHoehe[kasten] * 0.5
-    let halbTiefe = filmKastenTiefe[kasten] * 0.5
+    let halbBreite = filmKastenBreite[kasten]
+    let halbHoehe = filmKastenHoehe[kasten]
+    let halbTiefe = filmKastenTiefe[kasten]
     let kleinsterX = 10000
     let groessterX = -10000
     let kleinsterY = 10000
     let groessterY = -10000
     for (let i = 0; i < 8; i++) {
-        let verjuengung = art == 1 && (i & 2) == 0 ? 0.58 : 1
-        projiziere(x + ((i & 1) == 0 ? -halbBreite : halbBreite) * verjuengung,
+        let verjuengung = art == 1 && (i & 2) == 0 ? 594 : 1024
+        projiziere(x + ((((i & 1) == 0 ? -halbBreite : halbBreite) * verjuengung) >> 10),
             y + ((i & 2) == 0 ? -halbHoehe : halbHoehe),
-            z + ((i & 4) == 0 ? -halbTiefe : halbTiefe) * verjuengung)
+            z + ((((i & 4) == 0 ? -halbTiefe : halbTiefe) * verjuengung) >> 10))
         // Liegt ein Eckpunkt zu nah vor der Kamera (Tiefe unter 1,25) oder dahinter, wird der Kasten gar nicht
         // gezeichnet. Alle großen Teile der Kulisse stehen seitlich der Flugbahn, deshalb fällt das nicht auf, und es
         // entstehen keine verdrehten Flächen.
-        if (filmTiefe < 1.25) return
-        filmEckeX[i] = filmBildX
-        filmEckeY[i] = filmBildY
+        if (filmTiefe < 1280) return
+        filmEckeX[i] = (filmBildX + 8) >> 4
+        filmEckeY[i] = (filmBildY + 8) >> 4
         filmEckeZ[i] = filmTiefe
-        kleinsterX = Math.min(kleinsterX, filmBildX)
-        groessterX = Math.max(groessterX, filmBildX)
-        kleinsterY = Math.min(kleinsterY, filmBildY)
-        groessterY = Math.max(groessterY, filmBildY)
+        kleinsterX = Math.min(kleinsterX, filmEckeX[i])
+        groessterX = Math.max(groessterX, filmEckeX[i])
+        kleinsterY = Math.min(kleinsterY, filmEckeY[i])
+        groessterY = Math.max(groessterY, filmEckeY[i])
     }
     if (groessterX < 0 || kleinsterX > 159 || groessterY < 6 || kleinsterY > 111) return
     // Von jedem Kasten werden nur die drei Flächen gezeichnet, die zur Kamera zeigen.
@@ -321,7 +324,7 @@ function zeichneKasten(leinwand: Image, kasten: number) {
         }
         // Die Tiefe bleibt erkennbar: Ferne Inseln und Bäume (Kastenarten unter 4) bekommen ab 48 Einheiten Abstand
         // ganz die Farben des Dunstes.
-        if (z - filmKameraZ > 48 && art < 4) {
+        if (z - filmKameraZ > 49152 && art < 4) {
             farbe = istOben ? (art == 0 || art == 3 ? 6 : 11) : 12
             kantenFarbe = farbe
         }
@@ -332,10 +335,10 @@ function zeichneKasten(leinwand: Image, kasten: number) {
 function zeichneKulisse(leinwand: Image) {
     let anzahl = 0
     for (let i = 0; i < filmKastenX.length; i++) {
-        let vorwaerts = (filmKastenZ[i] - filmKameraZ) * filmCosDrehung +
-            (filmKastenX[i] - filmKameraX) * filmSinDrehung
-        let abstand = vorwaerts * filmCosNeigung + (filmKastenY[i] - filmKameraY) * filmSinNeigung
-        if (abstand < 1 || abstand > 84) continue
+        let vorwaerts = ((filmKastenZ[i] - filmKameraZ) * filmCosDrehung +
+            (filmKastenX[i] - filmKameraX) * filmSinDrehung) >> 10
+        let abstand = (vorwaerts * filmCosNeigung + (filmKastenY[i] - filmKameraY) * filmSinNeigung) >> 10
+        if (abstand < 1024 || abstand > 86016) continue
         // Die Kästen werden nach Abstand sortiert, die fernsten zuerst. Das geschieht in schon vorhandenen Listen; es
         // entstehen keine neuen Objekte.
         let j = anzahl - 1
@@ -351,14 +354,17 @@ function zeichneKulisse(leinwand: Image) {
     for (let i = 0; i < anzahl; i++) zeichneKasten(leinwand, filmKastenReihe[i])
 }
 
+// Mitte und Radien kommen in 16teln eines Pixels an. Erst beim Zeichnen wird auf ganze Pixel gerundet: + 8, dann
+// >> 4 (geteilt durch 16).
 function fuelleEllipse(leinwand: Image, x: number, y: number, radiusX: number, radiusY: number, farbe: number) {
     if (radiusX <= 0 || radiusY <= 0) return
     let vorherigerX = x + radiusX
     let vorherigerY = y
     for (let i = 1; i <= 24; i++) {
-        let randX = x + filmRingX[i] * radiusX
-        let randY = y + filmRingY[i] * radiusY
-        fuelleDreieck(leinwand, x, y, vorherigerX, vorherigerY, randX, randY, farbe)
+        let randX = x + ((filmRingX[i] * radiusX) >> 10)
+        let randY = y + ((filmRingY[i] * radiusY) >> 10)
+        leinwand.fillTriangle((x + 8) >> 4, (y + 8) >> 4, (vorherigerX + 8) >> 4, (vorherigerY + 8) >> 4,
+            (randX + 8) >> 4, (randY + 8) >> 4, farbe)
         vorherigerX = randX
         vorherigerY = randY
     }
@@ -366,7 +372,7 @@ function fuelleEllipse(leinwand: Image, x: number, y: number, radiusX: number, r
 
 function zeichneHimmel(leinwand: Image, abend: boolean, sog: number) {
     leinwand.fill(15)
-    let horizont = Math.max(33, Math.min(85, 57 + filmSinNeigung * 92))
+    let horizont = Math.max(33, Math.min(85, 57 + ((filmSinNeigung * 92) >> 10)))
     leinwand.fillRect(0, horizont - 15, 160, 127 - horizont, 8)
     leinwand.fillRect(0, horizont + 9, 160, 111 - horizont, 12)
     leinwand.fillRect(0, horizont + 35, 160, 112 - (horizont + 35), 15)
@@ -374,69 +380,80 @@ function zeichneHimmel(leinwand: Image, abend: boolean, sog: number) {
         leinwand.fillRect(0, horizont - 6, 160, 29, 12)
         leinwand.fillRect(0, horizont + 14, 160, 21, 11)
         // Eine große Sonne im Gegenlicht mit gestuften Lichtbändern.
-        let sonneX = 127 - filmKameraX * 2
-        fuelleEllipse(leinwand, sonneX, 52, 22, 22, 4)
-        fuelleEllipse(leinwand, sonneX, 50, 17, 17, 5)
-        leinwand.fillRect(99 - filmKameraX * 2, 59, 57, 2, 12)
-        leinwand.fillRect(103 - filmKameraX * 2, 64, 49, 2, 12)
-        fuelleDreieck(leinwand, sonneX - 6, 62, 5, 111, 27, 111, 8)
-        fuelleDreieck(leinwand, sonneX - 2, 62, 47, 111, 57, 111, 12)
-        fuelleDreieck(leinwand, sonneX + 6, 62, 137, 111, 159, 111, 8)
+        let sonneX = 2032 - (filmKameraX >> 5)
+        fuelleEllipse(leinwand, sonneX, 832, 352, 352, 4)
+        fuelleEllipse(leinwand, sonneX, 800, 272, 272, 5)
+        sonneX = (sonneX + 8) >> 4
+        leinwand.fillRect(sonneX - 28, 59, 57, 2, 12)
+        leinwand.fillRect(sonneX - 24, 64, 49, 2, 12)
+        leinwand.fillTriangle(sonneX - 6, 62, 5, 111, 27, 111, 8)
+        leinwand.fillTriangle(sonneX - 2, 62, 47, 111, 57, 111, 12)
+        leinwand.fillTriangle(sonneX + 6, 62, 137, 111, 159, 111, 8)
     } else {
         // Schmale Himmelsbänder wandern beim Drehen der Kamera mit.
         for (let i = 0; i < 5; i++) {
-            let x = 14 + i * 29 - filmSinDrehung * 70
+            let x = 14 + i * 29 - ((filmSinDrehung * 70) >> 10)
             leinwand.drawLine(x, 24 + i * 3, x + 29, 20 + i * 3, 8)
         }
     }
+    // Die Sterne rechnen in 16teln eines Pixels. versatz (wie weit die Sterne schon gewandert sind) und schweif (Länge
+    // der Lichtstreifen beim Flug durch das Tor) werden nur einmal je Bild ausgerechnet.
+    let versatz = Math.round((filmZeitMs * (0.006 + sog * 0.12)) % 128 * 16)
+    let schweif = Math.round(sog * 307)
     for (let i = 0; i < 28; i++) {
-        let abstand = 30 + ((i * 37 + 128 - ((filmZeitMs * (0.006 + sog * 0.12)) % 128)) % 128)
-        let x = 80 + ((i * 97 + 19) % 159 - 79) * 91 / abstand - filmSinDrehung * 60
-        let y = 45 + ((i * 61 + 7) % 89 - 49) * 75 / abstand
-        if (x < 0 || x > 159 || y < 8 || y > (abend ? 30 : 100)) continue
-        if (sog > 0) leinwand.drawLine(x, y,
-            x - (x - 80) * sog * 0.3,
-            y - (y - 55) * sog * 0.3, 8)
-        leinwand.setPixel(x, y, i % 5 == 0 ? 5 : abstand < 62 ? 1 : 9)
+        let abstand = 480 + ((i * 592 + 2048 - versatz) % 2048)
+        let x = 1280 + Math.idiv(((i * 97 + 19) % 159 - 79) * 23296, abstand) - ((filmSinDrehung * 960) >> 10)
+        let y = 720 + Math.idiv(((i * 61 + 7) % 89 - 49) * 19200, abstand)
+        if (x < 0 || x > 2544 || y < 128 || y > (abend ? 480 : 1600)) continue
+        if (schweif > 0) leinwand.drawLine(x >> 4, y >> 4,
+            (x - (((x - 1280) * schweif) >> 10)) >> 4,
+            (y - (((y - 880) * schweif) >> 10)) >> 4, 8)
+        leinwand.setPixel(x >> 4, y >> 4, i % 5 == 0 ? 5 : abstand < 992 ? 1 : 9)
     }
     // Waagerechte Wolken bewegen sich mit dem 3D-Flug, statt wie ein stehendes Hintergrundbild zu bleiben.
     for (let i = 0; i < 4; i++) {
-        let z = 18 + ((i * 25 + 150 - filmKameraZ) % 100)
-        let x = 80 + ((i % 2 == 0 ? -13 : 12) - filmKameraX) * 92 / z
-        let y = 49 + (3 + i % 2) * 92 / z
-        let breite = Math.min(55, 700 / z)
-        leinwand.fillRect(x - breite / 2, y, breite, Math.max(1, 35 / z), abend ? 13 : 11)
+        let z = 18432 + ((i * 25600 + 153600 - filmKameraZ) % 102400)
+        let x = 1280 + Math.idiv(((i % 2 == 0 ? -13312 : 12288) - filmKameraX) * 1472, z)
+        let y = 784 + Math.idiv((3 + i % 2) * 1507328, z)
+        let breite = Math.min(880, Math.idiv(11468800, z))
+        leinwand.fillRect((x - (breite >> 1)) >> 4, y >> 4, breite >> 4, 1, abend ? 13 : 11)
     }
 }
 
 function zeichneTor(leinwand: Image, ladung: number) {
-    if (filmKameraZ > 50) return
-    projiziere(0, 1.15, 52.5)
-    if (filmTiefe < 2) return
+    if (filmKameraZ > 51200) return
+    projiziere(0, 1178, 53760)
+    if (filmTiefe < 2048) return
+    // Mitte und Radien des Tors zuerst in 16teln eines Pixels; Drehung und Größe der Ringe in 1024steln.
     let mitteX = filmBildX
     let mitteY = filmBildY
-    let massstab = filmBrennweite / filmTiefe
-    let halbBreite = 3.25 * massstab
-    let halbHoehe = 3.8 * massstab
-    fuelleEllipse(leinwand, mitteX, mitteY, halbBreite + 2, halbHoehe + 2, ladung > 0.55 ? 9 : 8)
+    let massstab = filmBrennweite * 64 / filmTiefe
+    let halbBreite = Math.idiv(3328 * filmBrennweite, filmTiefe)
+    let halbHoehe = Math.idiv(3891 * filmBrennweite, filmTiefe)
+    fuelleEllipse(leinwand, mitteX, mitteY, halbBreite + 32, halbHoehe + 32, ladung > 0.55 ? 9 : 8)
     fuelleEllipse(leinwand, mitteX, mitteY, halbBreite, halbHoehe, 15)
     let phase = filmZeitMs * 0.0017
-    let kosinus = Math.cos(phase)
-    let sinus = Math.sin(phase)
+    let kosinus = Math.round(Math.cos(phase) * 1024)
+    let sinus = Math.round(Math.sin(phase) * 1024)
     for (let ring = 0; ring < 3; ring++) {
-        let radius = ((filmZeitMs * 0.00016 + ring / 3) % 1)
-        let vorherigerX = mitteX + kosinus * halbBreite * radius
-        let vorherigerY = mitteY + sinus * halbHoehe * radius
+        let radius = (Math.idiv(filmZeitMs * 16384, 100000) + Math.idiv(ring * 1024, 3)) & 1023
+        let vorherigerX = mitteX + ((((kosinus * halbBreite) >> 10) * radius) >> 10)
+        let vorherigerY = mitteY + ((((sinus * halbHoehe) >> 10) * radius) >> 10)
         for (let i = 1; i <= 24; i++) {
-            let ringX = filmRingX[i] * kosinus - filmRingY[i] * sinus
-            let ringY = filmRingY[i] * kosinus + filmRingX[i] * sinus
-            let x = mitteX + ringX * halbBreite * radius
-            let y = mitteY + ringY * halbHoehe * radius
-            leinwand.drawLine(vorherigerX, vorherigerY, x, y, ring == 1 && ladung > 0.5 ? 9 : 8)
+            let ringX = (filmRingX[i] * kosinus - filmRingY[i] * sinus) >> 10
+            let ringY = (filmRingY[i] * kosinus + filmRingX[i] * sinus) >> 10
+            let x = mitteX + ((((ringX * halbBreite) >> 10) * radius) >> 10)
+            let y = mitteY + ((((ringY * halbHoehe) >> 10) * radius) >> 10)
+            leinwand.drawLine(vorherigerX >> 4, vorherigerY >> 4, x >> 4, y >> 4, ring == 1 && ladung > 0.5 ? 9 : 8)
             vorherigerX = x
             vorherigerY = y
         }
     }
+    // Ab hier folgen nur noch wenige Rechnungen je Bild, darum wieder in ganzen Pixeln.
+    mitteX = mitteX / 16
+    mitteY = mitteY / 16
+    halbBreite = halbBreite / 16
+    halbHoehe = halbHoehe / 16
     if (ladung > 0.02) {
         let lichtBreite = Math.max(1, ladung * 4)
         leinwand.fillRect(mitteX - lichtBreite - 2, 6, lichtBreite * 2 + 5, mitteY + halbHoehe - 6, 8)
@@ -474,27 +491,31 @@ function zeichneTor(leinwand: Image, ladung: number) {
 // Gezeichnet wird in drei Schichten (Rand, Schatten und Farbe); die Buchstaben zucken nicht zufällig.
 function zeichneBuchstaben(leinwand: Image, schriftBild: Image, y: number, massstab: number, zeigeMs: number,
     glanzSpalte: number, istGold: boolean, einflugRichtung: number) {
-    let startX = 80 - schriftBild.width * massstab / 2
-    let hoehenMassstab = schriftBild == filmTitelBild ? massstab * 1.22 : massstab
+    // Ganze Zahlen statt Kommazahlen: Größe und Höhe in 1024steln. glanzSpalte kommt schon in 1024steln an.
+    massstab = Math.round(massstab * 1024)
+    y = Math.round(y * 1024)
+    let startX = 81920 - ((schriftBild.width * massstab) >> 1)
+    let hoehenMassstab = schriftBild == filmTitelBild ? Math.idiv(massstab * 122, 100) : massstab
     let anzahlBuchstaben = Math.idiv(schriftBild.width + 5, 6)
     // Der Schatten wächst mit der Größe; bei kleinen Titeln würde ein fester Versatz die Lücken in
     // den Buchstaben füllen.
-    let schatten = Math.min(3, Math.round(massstab))
-    let umrandung = Math.min(5, Math.round(massstab * 1.75))
+    let schatten = Math.min(3, (massstab + 512) >> 10)
+    let umrandung = Math.min(5, (((massstab * 7) >> 2) + 512) >> 10)
+    let breite = Math.max(1, (massstab + 1023) >> 10)
+    let hoehe = Math.max(1, (hoehenMassstab + 1023) >> 10)
     for (let schicht = 0; schicht < 3; schicht++) {
         for (let buchstabe = 0; buchstabe < anzahlBuchstaben; buchstabe++) {
-            let fortschritt = glaette((zeigeMs - buchstabe * 85) / 650)
+            let fortschritt = Math.max(0, Math.min(1024, Math.idiv((zeigeMs - buchstabe * 85) * 1024, 650)))
+            fortschritt = (((fortschritt * fortschritt) >> 10) * (3072 - 2 * fortschritt)) >> 10
             if (fortschritt <= 0) continue
-            let rest = 1 - fortschritt
-            let verschiebungX = (buchstabe - (anzahlBuchstaben - 1) / 2) * rest * 16
-            let verschiebungY = rest * rest * 29 * einflugRichtung
+            let rest = 1024 - fortschritt
+            let verschiebungX = (2 * buchstabe - anzahlBuchstaben + 1) * rest * 8
+            let verschiebungY = ((rest * rest) >> 10) * 29 * einflugRichtung
             for (let schriftX = buchstabe * 6; schriftX < Math.min(schriftBild.width, buchstabe * 6 + 6); schriftX++) {
                 for (let schriftY = 0; schriftY < schriftBild.height; schriftY++) {
                     if (!schriftBild.getPixel(schriftX, schriftY)) continue
-                    let x = Math.round(startX + schriftX * massstab + verschiebungX)
-                    let bildY = Math.round(y + schriftY * hoehenMassstab + verschiebungY)
-                    let breite = Math.max(1, Math.ceil(massstab))
-                    let hoehe = Math.max(1, Math.ceil(hoehenMassstab))
+                    let x = (startX + schriftX * massstab + verschiebungX + 512) >> 10
+                    let bildY = (y + schriftY * hoehenMassstab + verschiebungY + 512) >> 10
                     if (schicht == 0) {
                         leinwand.fillRect(x - 1, bildY - 1, breite + 2, hoehe + 2, 15)
                         leinwand.fillRect(x + 2, bildY + umrandung, breite + 1, hoehe + 1, 15)
@@ -503,7 +524,7 @@ function zeichneBuchstaben(leinwand: Image, schriftBild: Image, y: number, masss
                         breite, hoehe + 1, istGold ? 4 : 8)
                     else {
                         let farbe = schriftY < Math.idiv(schriftBild.height, 2) ? 1 : istGold ? 5 : 9
-                        if (Math.abs(schriftX - glanzSpalte) < 2) farbe = 1
+                        if (Math.abs(schriftX * 1024 - glanzSpalte) < 2048) farbe = 1
                         leinwand.fillRect(x, bildY, breite, hoehe, farbe)
                     }
                 }
@@ -512,16 +533,19 @@ function zeichneBuchstaben(leinwand: Image, schriftBild: Image, y: number, masss
     }
 }
 
+// Die Radien sind in 16teln eines Pixels; staerke wird hier zur Länge des Schweifs.
 function zeichneFluglinien(leinwand: Image, staerke: number) {
+    staerke = Math.round((5 + staerke * 22) * 16)
     for (let i = 0; i < 12; i++) {
         let ringNummer = i * 2
-        let fortschritt = ((filmZeitMs * 0.0015 + i * 0.31) % 1)
-        let radius = 20 + fortschritt * 92
-        let x = 80 + filmRingX[ringNummer] * radius
-        let y = 55 + filmRingY[ringNummer] * radius * 0.7
-        let schweif = radius - (5 + staerke * 22)
-        leinwand.drawLine(x, y,
-            80 + filmRingX[ringNummer] * schweif, 55 + filmRingY[ringNummer] * schweif * 0.7,
+        let fortschritt = (Math.idiv(filmZeitMs * 1536, 1000) + Math.idiv(i * 31744, 100)) & 1023
+        let radius = 320 + ((fortschritt * 1472) >> 10)
+        let x = 1280 + ((filmRingX[ringNummer] * radius) >> 10)
+        let y = 880 + Math.idiv(filmRingY[ringNummer] * radius * 7, 10240)
+        let schweif = radius - staerke
+        leinwand.drawLine(x >> 4, y >> 4,
+            (1280 + ((filmRingX[ringNummer] * schweif) >> 10)) >> 4,
+            (880 + Math.idiv(filmRingY[ringNummer] * schweif * 7, 10240)) >> 4,
             i % 3 == 0 ? 9 : 8)
     }
 }
@@ -535,7 +559,7 @@ function zeichneBeschriftung(leinwand: Image, text: string, y: number, farbe: nu
 
 function zeichneFilm(leinwand: Image) {
     let zeitMs = filmZeitMs
-    filmBrennweite = 92
+    filmBrennweite = 1472
     filmAbend = zeitMs >= FILM_ABEND_MS
     if (zeitMs < FILM_TORLADUNG_MS) {
         let fortschritt = zeitMs / FILM_TORLADUNG_MS
@@ -554,7 +578,7 @@ function zeichneFilm(leinwand: Image) {
         let fortschritt = (zeitMs - FILM_TORFLUG_MS) / 4000
         // Beschleunigen durch das Tor, dann Abbremsen vor der Zielinsel.
         let flugweg = glaette(fortschritt)
-        filmBrennweite = 92 - Math.sin(fortschritt * Math.PI) * 16
+        filmBrennweite = Math.round((92 - Math.sin(fortschritt * Math.PI) * 16) * 16)
         setzeFilmKamera(
             Math.sin(fortschritt * Math.PI * 2) * 0.8,
             2.4 + flugweg * 4,
@@ -590,12 +614,13 @@ function zeichneFilm(leinwand: Image) {
     if (zeitMs >= FILM_TORLADUNG_MS && zeitMs < FILM_TORFLUG_MS) {
         let energie = glaette((zeitMs - FILM_TORLADUNG_MS) / 2400)
         // Die Energie zieht sichtbare Splitter zum Tor, bevor es sich öffnet.
+        energie = 2 + energie * 2
         for (let i = 0; i < 8; i++) {
             let ringNummer = i * 3
-            let radius = 18 + ((i * 13 + 97 - ((zeitMs - FILM_TORLADUNG_MS) / 17) % 97) % 97)
-            let x = 80 + filmRingX[ringNummer] * radius
-            let y = 60 + filmRingY[ringNummer] * radius * 0.68
-            leinwand.fillRect(x, y, 2 + energie * 2, 2 + energie * 2, i % 3 == 0 ? 5 : 9)
+            let radius = 288 + ((i * 208 + 1552 - Math.idiv((zeitMs - FILM_TORLADUNG_MS) * 16, 17) % 1552) % 1552)
+            let x = 1280 + ((filmRingX[ringNummer] * radius) >> 10)
+            let y = 960 + Math.idiv(filmRingY[ringNummer] * radius * 17, 25600)
+            leinwand.fillRect(x >> 4, y >> 4, energie, energie, i % 3 == 0 ? 5 : 9)
         }
     }
     if (sog > 0.1) zeichneFluglinien(leinwand, sog)
@@ -603,9 +628,9 @@ function zeichneFilm(leinwand: Image) {
         let vergangenMs = zeitMs - FILM_KARTE_MS
         // Zwei riesige Wörter statt einer kleinen Beschriftung über dem Bild.
         zeichneBuchstaben(leinwand, filmCalliopeBild, 19, 2.85,
-            vergangenMs + 180, (vergangenMs - 1400) / 50, true, -1)
+            vergangenMs + 180, Math.idiv((vergangenMs - 1400) * 1024, 50), true, -1)
         zeichneBuchstaben(leinwand, filmHackerBild, 55, 3.45,
-            vergangenMs - 180, (vergangenMs - 1700) / 48, false, 1)
+            vergangenMs - 180, Math.idiv((vergangenMs - 1700) * 1024, 48), false, 1)
         if (vergangenMs > 1200) {
             let enthuellt = glaette((vergangenMs - 1200) / 550)
             let y = 98 + Math.round((1 - enthuellt) * 6)
@@ -627,7 +652,7 @@ function zeichneFilm(leinwand: Image) {
         let abklingen = 1 - glaette(vergangenMs / 1000)
         // Ein ruhiger, großer Auftritt des Titels: Der Kameraflug läuft darunter weiter.
         zeichneBuchstaben(leinwand, filmTitelBild, 15 - abklingen * 7,
-            titelMassstab(148) + abklingen * 0.12, vergangenMs + 120, (vergangenMs - 1800) / 33, true, -1)
+            titelMassstab(148) + abklingen * 0.12, vergangenMs + 120, Math.idiv((vergangenMs - 1800) * 1024, 33), true, -1)
         if (vergangenMs > 1600) zeichneBeschriftung(leinwand, "BAUE DEINE EIGENE WELT", 51, 13)
         // Blätter und Funken im Vordergrund bewegen sich mit der Kamerafahrt.
         for (let i = 0; i < 8; i++) {
