@@ -9,6 +9,17 @@ const BILD_RUHE_MS = 500
 // Bild an der Wand der Werkbank: linke obere Ecke des Bildes, ein Pixel Rahmen darum.
 const WANDBILD_X = 129
 const WANDBILD_Y = 11
+// Wer A kürzer drückt, springt. Das schnellste Abbauen dauert 220 Millisekunden, ein kurzes Tippen baut also nichts ab.
+// Die Zeit zählt in Spielzeit (je Bild höchstens 80 Millisekunden), genau wie beim Abbauen: Am Gerät kommen
+// Tastendrücke nur zwischen zwei Bildern an, und bei langsamen Bildern wäre die echte Zeit dazwischen zu lang.
+const SPRUNG_TIPPEN_MS = 250
+// Ein Tippen kurz vor der Landung zählt noch, auch wenn ein Bild am Gerät lange dauert.
+const SPRUNG_VORLAUF_MS = 250
+// Sitzt die Figur so lange in einem Loch, erklärt ein Hinweis oben, wie sie herauskommt. Er bleibt eine Weile stehen
+// und kommt nach einer Pause wieder.
+const HINWEIS_NACH_MS = 4000
+const HINWEIS_DAUER_MS = 5000
+const HINWEIS_WIEDER_MS = 20000
 let titelOffen = true
 let titelSeitMs = 0
 let menueRuheBisMs = 0
@@ -48,6 +59,18 @@ let weltBildNeigung = -2
 let weltBildBreite = 0
 let weltBild = image.create(160, 120)
 let titelSchriftzug: Image = null
+let aGehaltenMs = 0
+// Hat der Daumen B schon gedrückt, bevor er A losgelassen hat? Das gilt trotzdem als „A, dann B“.
+let bGerollt = false
+let sprungBereit = false
+let diesmalAbgebaut = false
+let hochbauenGewuenscht = false
+// Wann die Figur in der Luft springen wollte: Landet sie kurz danach, springt sie dann.
+let sprungWunschMs = -1000
+let imLochSeitMs = -1
+let naechstePruefungLochMs = 0
+let hinweisBisMs = 0
+let naechsterHinweisMs = 0
 
 function fordereNeuesBildAn() {
     szeneStand++
@@ -75,6 +98,8 @@ function starteSpiel() {
     tastenGesperrt = true
     bBenutzt = true
     abbauMs = 0
+    imLochSeitMs = -1
+    hinweisBisMs = 0
     aktualisiereZiel()
     fordereNeuesBildAn()
     melde(hatHacke ? "Hacke bereit. Los!" : "MENU: Baue deine Hacke")
@@ -213,10 +238,22 @@ controller.A.onEvent(ControllerButtonEvent.Pressed, function () {
         menueOffen = false
         neueWeltGefragt = false
         tastenGesperrt = true
+    } else {
+        // Im Spiel: Ein kurzer Druck auf A ist ein Sprung (beim Loslassen), ein langer baut ab.
+        aGehaltenMs = 0
+        diesmalAbgebaut = false
+        sprungBereit = !tastenGesperrt && !controller.B.isPressed() &&
+            (!trainingLaeuft || (trainingSchritt >= 1 && trainingSchritt <= TRAINING_SPRUNG))
     }
+})
+controller.A.onEvent(ControllerButtonEvent.Released, function () {
+    if (sprungBereit && !diesmalAbgebaut && aGehaltenMs < SPRUNG_TIPPEN_MS && filmFertig &&
+        !titelOffen && !menueOffen && (!controller.B.isPressed() || bGerollt) && !springe()) sprungWunschMs = game.runtime()
+    sprungBereit = false
 })
 controller.B.onEvent(ControllerButtonEvent.Pressed, function () {
     bBenutzt = !filmFertig || titelOffen || menueOffen || tastenGesperrt
+    bGerollt = !bBenutzt && sprungBereit && controller.A.isPressed()
     if (!filmFertig) return
     if (titelOffen) {
         if (titelBereit()) starteTraining()
@@ -224,8 +261,13 @@ controller.B.onEvent(ControllerButtonEvent.Pressed, function () {
     else if (menueOffen) fuehreMenueZeileAus()
 })
 controller.B.onEvent(ControllerButtonEvent.Released, function () {
-    if (filmFertig && !titelOffen && !menueOffen && !bBenutzt && !tastenGesperrt &&
-        (!trainingLaeuft || trainingSchritt == 5)) {
+    // Im Sprung setzt B den Block unter die Füße, sobald die Figur hoch genug ist.
+    let gerollt = bGerollt
+    bGerollt = false
+    if (filmFertig && !titelOffen && !menueOffen && (!bBenutzt || gerollt) && !tastenGesperrt && springt &&
+        (!trainingLaeuft || trainingSchritt == TRAINING_SPRUNG)) hochbauenGewuenscht = true
+    else if (filmFertig && !titelOffen && !menueOffen && !bBenutzt && !tastenGesperrt &&
+        (!trainingLaeuft || trainingSchritt == 5 || trainingSchritt == TRAINING_SPRUNG)) {
         aktualisiereZiel()
         if (!hatZiel) melde("Ziel außer Reichweite")
         else if (setzeBlock(platzX, platzY, platzZ)) {
@@ -280,19 +322,20 @@ function aktualisiereSpiel() {
         return
     }
     if (titelOffen || menueOffen) return
-    if (trainingLaeuft && (trainingSchritt == 0 || trainingSchritt == 8)) {
+    if (trainingLaeuft && (trainingSchritt == 0 || trainingSchritt == TRAINING_ENDE)) {
         aktualisiereTraining(schrittMs, 0, 0)
         return
     }
+    if (controller.A.isPressed()) aGehaltenMs += schrittMs
     let vorwaerts = (controller.up.isPressed() ? 1 : 0) - (controller.down.isPressed() ? 1 : 0)
     let drehRichtung = (controller.right.isPressed() ? 1 : 0) - (controller.left.isPressed() ? 1 : 0)
     let neigeRichtung = 0
-    if (trainingLaeuft && trainingSchritt != 1 && trainingSchritt != 3) vorwaerts = 0
-    if (trainingLaeuft && trainingSchritt != 2 && trainingSchritt != 6) drehRichtung = 0
+    if (trainingLaeuft && trainingSchritt != 1 && trainingSchritt != 3 && trainingSchritt != TRAINING_SPRUNG) vorwaerts = 0
+    if (trainingLaeuft && trainingSchritt != 2 && trainingSchritt != 6 && trainingSchritt != TRAINING_SPRUNG) drehRichtung = 0
     if (controller.B.isPressed()) {
         if (controller.up.isPressed() || controller.down.isPressed() || controller.left.isPressed() ||
             controller.right.isPressed() || controller.A.isPressed()) bBenutzt = true
-        if (vorwaerts != 0 && (!trainingLaeuft || trainingSchritt == 3)) {
+        if (vorwaerts != 0 && (!trainingLaeuft || trainingSchritt == 3 || trainingSchritt == TRAINING_SPRUNG)) {
             neigeRichtung = vorwaerts
             neigung = Math.max(-1.2, Math.min(1.2, neigung + vorwaerts * schrittMs * 0.0017))
             ungespeichert = true
@@ -312,9 +355,24 @@ function aktualisiereSpiel() {
         wippPhase += schrittMs * 0.014
     }
     if (figurX != vorherX || figurY != vorherY || figurZ != vorherZ || drehRichtung != 0) ungespeichert = true
+    if (amBoden && jetzt - sprungWunschMs <= SPRUNG_VORLAUF_MS) {
+        sprungWunschMs = -1000
+        springe()
+    }
+    if (hochbauenGewuenscht) {
+        if (!springt) hochbauenGewuenscht = false
+        else if (figurY >= (absprungHoehe + 1) * EINHEIT) {
+            hochbauenGewuenscht = false
+            if (baueUnterDich()) {
+                spieleKlang(1)
+                letzterSchwungMs = jetzt
+                fordereNeuesBildAn()
+            } else melde("Kein Platz / Material")
+        }
+    }
     aktualisiereZiel()
     if (!tastenGesperrt && controller.A.isPressed() && !controller.B.isPressed() && hatZiel &&
-        (!trainingLaeuft || trainingSchritt == 4)) {
+        (!trainingLaeuft || trainingSchritt == 4 || trainingSchritt == TRAINING_SPRUNG)) {
         if (abbauX != zielX || abbauY != zielY || abbauZ != zielZ) abbauMs = 0
         abbauX = zielX
         abbauY = zielY
@@ -323,6 +381,7 @@ function aktualisiereSpiel() {
         let abbauDauerMs = zielBlock == Block.Stein || zielBlock == Block.Kristall
             ? (hatHacke ? 220 : 600) : 300
         if (abbauMs >= abbauDauerMs) {
+            diesmalAbgebaut = true
             let art = zielBlock
             if (baueBlockAb(zielX, zielY, zielZ)) {
                 letzterSchwungMs = jetzt
@@ -339,6 +398,20 @@ function aktualisiereSpiel() {
         }
     } else abbauMs = 0
     aktualisiereTraining(schrittMs, drehRichtung, neigeRichtung)
+    // Zweimal pro Sekunde: Sitzt die Figur in einem Loch? Das wird nur im Stehen geprüft, nicht im Training.
+    if (!trainingLaeuft && jetzt >= naechstePruefungLochMs && amBoden) {
+        naechstePruefungLochMs = jetzt + 500
+        if (zaehleFreiraum() < LOCH_GRENZE) {
+            if (imLochSeitMs < 0) imLochSeitMs = jetzt
+        } else {
+            imLochSeitMs = -1
+            hinweisBisMs = 0
+        }
+    }
+    if (imLochSeitMs >= 0 && jetzt - imLochSeitMs >= HINWEIS_NACH_MS && jetzt >= naechsterHinweisMs) {
+        hinweisBisMs = jetzt + HINWEIS_DAUER_MS
+        naechsterHinweisMs = jetzt + HINWEIS_WIEDER_MS
+    }
     if (!trainingLaeuft && jetzt - letzteSpeicherpruefungMs >= 60000) {
         letzteSpeicherpruefungMs = jetzt
         if (ungespeichert) speichereSpiel()
@@ -459,6 +532,16 @@ function zeichneLeiste(leinwand: Image) {
     if (meldungBisMs > game.runtime() && !menueOffen && !trainingLaeuft) {
         leinwand.fillRect(0, 82, 160, 10, 15)
         leinwand.print(meldung, 2, 83, 5, image.font8)
+    }
+    if (hinweisBisMs > game.runtime() && !menueOffen && !trainingLaeuft) {
+        // Hinweis im Loch: mit Baustoff hochbauen, ohne Baustoff zuerst einen Block abbauen.
+        let hatBaustoff = hatNochBaustoff()
+        leinwand.fillRect(0, 10, 160, 20, 15)
+        leinwand.drawLine(0, 29, 159, 29, 6)
+        leinwand.print(hatBaustoff ? "Tippe A: Du springst." : "Kein Block? Halte A.",
+            2, 11, 5, image.font8)
+        leinwand.print(hatBaustoff ? "Dann B: Block unter dich." : "Dann A tippen, dann B.",
+            2, 20, 1, image.font8)
     }
 }
 function zeichneMenue(leinwand: Image) {

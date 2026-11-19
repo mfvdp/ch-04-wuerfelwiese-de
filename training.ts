@@ -1,4 +1,4 @@
-// Das Training in sieben Schritten auf einem abgetrennten Platz. Der echte Spielstand wird am Ende wiederhergestellt.
+// Das Training in acht Schritten auf einem abgetrennten Platz. Der echte Spielstand wird am Ende wiederhergestellt.
 let trainingLaeuft = false
 let trainingSchritt = 0
 let trainingMs = 0
@@ -7,6 +7,9 @@ let spielstandKopie: Buffer = null
 let trainingStartZ = 0
 let trainingAmEnde = false
 let warUngespeichert = false
+// Schritt 8 übt Springen und Hochbauen in einem Loch, Schritt 9 ist die Schlusskarte.
+const TRAINING_SPRUNG = 8
+const TRAINING_ENDE = 9
 let trainingUeberschriften = [
     "DEIN ABENTEUER BEGINNT",
     "01  BEWEGEN",
@@ -16,6 +19,7 @@ let trainingUeberschriften = [
     "05  DEIN ERSTER BLOCK",
     "06  MATERIAL WECHSELN",
     "07  DIE WERKBANK",
+    "08  RAUS AUS DEM LOCH",
     "BEREIT FÜR DEINE WELT"
 ]
 let trainingZeile1 = [
@@ -27,10 +31,11 @@ let trainingZeile1 = [
     "Tippe B kurz an.",
     "Halte B + RECHTS.",
     "Öffne MENU.",
+    "Tippe A: Du springst.",
     "Erkunde. Sammle. Baue."
 ]
 let trainingZeile2 = [
-    "Sieben kleine Aufgaben.",
+    "Acht kleine Aufgaben.",
     "Geh zum Trainingsblock.",
     "So drehst du dich.",
     "Bewege deinen Blick.",
@@ -38,6 +43,7 @@ let trainingZeile2 = [
     "Baue vor dem Stein.",
     "Wähle einen Baustoff.",
     "Stelle eine Hacke her.",
+    "Dann B: Block unter dich.",
     "A: Auf ins Abenteuer!"
 ]
 
@@ -110,7 +116,21 @@ function geheZumNaechstenSchritt() {
         figurY = 4 * EINHEIT
         fallTempo = 0
     }
-    if (trainingSchritt == 8) {
+    if (trainingSchritt == TRAINING_SPRUNG) {
+        // Ein Loch, zwei Blöcke tief: Herauslaufen geht nicht, Hochbauen schon.
+        menueOffen = false
+        schreibeBlock(10, 1, 5, Block.Stein)
+        schreibeBlock(10, 2, 5, Block.Luft)
+        schreibeBlock(10, 3, 5, Block.Luft)
+        figurX = 10 * EINHEIT + 128
+        figurZ = 5 * EINHEIT + 128
+        figurY = 2 * EINHEIT
+        fallTempo = 0
+        springt = false
+        drehung = 0
+        neigung = -0.16
+    }
+    if (trainingSchritt == TRAINING_ENDE) {
         trainingAmEnde = true
         menueOffen = false
     }
@@ -135,10 +155,13 @@ function aktualisiereTraining(schrittMs: number, drehRichtung: number, neigeRich
     } else if (trainingSchritt == 3) {
         trainingFortschritt += Math.abs(neigeRichtung) * schrittMs / 260
         if (trainingFortschritt >= 1) geheZumNaechstenSchritt()
+    } else if (trainingSchritt == TRAINING_SPRUNG && figurY >= 4 * EINHEIT && figurStoesstAn(figurX, figurY - 1, figurZ)) {
+        // Geschafft, sobald die Figur wieder oben auf der Wiese steht.
+        geheZumNaechstenSchritt()
     }
 }
 function zeichneTraining(leinwand: Image) {
-    if (trainingSchritt == 0 || trainingSchritt == 8) {
+    if (trainingSchritt == 0 || trainingSchritt == TRAINING_ENDE) {
         leinwand.fillRect(4, 30, 152, 61, 15)
         leinwand.drawRect(4, 30, 152, 61, 6)
         let titel = trainingUeberschriften[trainingSchritt]
@@ -159,13 +182,13 @@ function zeichneTraining(leinwand: Image) {
         leinwand.print(trainingUeberschriften[trainingSchritt], 4, 84, 5, image.font8)
         leinwand.print(trainingZeile1[trainingSchritt], 4, 94, 1, image.font8)
         leinwand.print(trainingZeile2[trainingSchritt], 4, 103, 13, image.font8)
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 8; i++) {
             leinwand.fillRect(114 + i * 6, 73, 4, 3,
                 i < trainingSchritt - 1 ? 7 : i == trainingSchritt - 1 ? 5 : 12)
         }
     }
     leinwand.fillRect(0, 0, 160, 8, 15)
-    leinwand.print("TRAINING " + Math.min(7, trainingSchritt) + "/7", 2, 1, 9, image.font8)
+    leinwand.print("TRAINING " + Math.min(8, trainingSchritt) + "/8", 2, 1, 9, image.font8)
     leinwand.print(trainingSchritt == 7 ? "MENU" : "MENU: ENDE",
         trainingSchritt == 7 ? 134 : 88, 1, 13, image.font8)
 }

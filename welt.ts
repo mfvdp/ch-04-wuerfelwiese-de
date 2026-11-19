@@ -9,6 +9,11 @@ const FIGUR_HOEHE = 410
 const AUGENHOEHE = 350
 const BLOCKANZAHL = WELT_BREITE * WELT_BREITE * WELT_HOEHE
 const SPIELSTAND_GROESSE = 64 + BLOCKANZAHL / 2 + 2
+// So schnell startet ein Sprung nach oben, in 1/256 Block pro Sekunde. Die Figur fliegt etwa 1,27 Blöcke hoch: genug,
+// um auf einen Block zu springen und im Sprung einen Block unter sich zu setzen.
+const SPRUNG_TEMPO = 1140
+// Hat der Platz um die Figur weniger Felder als diese Zahl, gilt er als Loch.
+const LOCH_GRENZE = 20
 enum Block { Luft, Gras, Erde, Stein, Holz, Laub, Bretter, Kristall, Grundfels }
 let welt = control.createBuffer(BLOCKANZAHL)
 let vorrat = [0, 0, 24, 16, 8, 0, 12, 0, 0]
@@ -23,6 +28,19 @@ let drehung = 0
 let neigung = -0.16
 let fallTempo = 0
 let amBoden = true
+// Ob die Figur gerade durch einen Sprung in der Luft ist, und in welcher Höhe (in Blöcken) ihre Füße
+// beim Absprung waren.
+let springt = false
+let absprungHoehe = 0
+// Was vom senkrechten Weg im letzten Zeitschritt übrig blieb, weil es weniger als 1/256 Block war (in 2000steln davon).
+// So geht beim Rechnen mit ganzen Zahlen nichts verloren.
+let fallRest = 0
+// Merkzettel für die Suche nach einem Loch: welche Felder schon besucht sind, und eine Warteschlange der Felder, die
+// noch dran sind. Sie werden nur einmal angelegt, nicht in jedem Bild.
+let lochBesucht = control.createBuffer(WELT_BREITE * WELT_BREITE)
+let lochX = control.createBuffer(LOCH_GRENZE)
+let lochZ = control.createBuffer(LOCH_GRENZE)
+let lochFuesse = control.createBuffer(LOCH_GRENZE)
 let ungespeichert = false
 let strahlBreite = 4
 let hatHacke = false
@@ -121,6 +139,7 @@ function geheZumStart() {
     schreibeBlock(12, 5, 4, Block.Luft)
     fallTempo = 0
     amBoden = true
+    springt = false
 }
 function bewegeAchse(dx: number, dz: number) {
     if (!figurStoesstAn(figurX + dx, figurY, figurZ + dz)) {
@@ -139,12 +158,19 @@ function bewegeAchse(dx: number, dz: number) {
 function rechnePhysik(vorwaerts: number, schrittMs: number) {
     schrittMs = Math.max(0, Math.min(80, schrittMs))
     if (schrittMs == 0) return
-    amBoden = figurStoesstAn(figurX, figurY - 2, figurZ)
+    // Wer gerade nach oben fliegt, steht nicht auf dem Boden. So steigt die Figur beim Absprung nicht zusätzlich
+    // eine Stufe hoch.
+    amBoden = fallTempo <= 0 && figurStoesstAn(figurX, figurY - 2, figurZ)
     let strecke = Math.idiv(vorwaerts * schrittMs * 7, 10)
     bewegeAchse(Math.round(Math.sin(drehung) * strecke), 0)
     bewegeAchse(0, Math.round(Math.cos(drehung) * strecke))
+    // Weg nach der Uhr: die mittlere Geschwindigkeit vor und nach dem Zeitschritt mal die Zeit. So fliegt ein Sprung
+    // gleich hoch, ob ein Bild 16 oder 80 Millisekunden dauert.
+    let tempoVorher = fallTempo
     fallTempo = Math.max(-1100, fallTempo - schrittMs * 2)
-    let bewegung = Math.idiv(fallTempo * schrittMs, 1000)
+    let fallWeg = (tempoVorher + fallTempo) * schrittMs + fallRest
+    let bewegung = Math.idiv(fallWeg, 2000)
+    fallRest = fallWeg - bewegung * 2000
     let teilschritte = Math.max(1, Math.ceil(Math.abs(bewegung) / 24))
     for (let i = 0; i < teilschritte; i++) {
         let dy = Math.idiv(bewegung * (i + 1), teilschritte) - Math.idiv(bewegung * i, teilschritte)
@@ -158,10 +184,87 @@ function rechnePhysik(vorwaerts: number, schrittMs: number) {
                 figurY += richtung
             }
             fallTempo = 0
+            fallRest = 0
             break
         }
     }
     amBoden = figurStoesstAn(figurX, figurY - 1, figurZ)
+    if (amBoden && fallTempo <= 0) springt = false
+}
+// Springen geht nur vom Boden aus, nicht in der Luft.
+function springe(): boolean {
+    if (!figurStoesstAn(figurX, figurY - 1, figurZ)) return false
+    fallTempo = SPRUNG_TEMPO
+    fallRest = 0
+    amBoden = false
+    springt = true
+    absprungHoehe = figurY >> 8
+    return true
+}
+// Im Sprung einen Block unter die Füße setzen (hochbauen). Ist der gewählte Baustoff leer, nimmt die Figur den nächsten
+// Baustoff, von dem sie noch etwas hat.
+function baueUnterDich(): boolean {
+    if (!springt || figurY < (absprungHoehe + 1) * EINHEIT) return false
+    if (vorrat[baustoffe[gewaehlt]] == 0) {
+        for (let i = 1; i < baustoffe.length; i++) {
+            let naechster = (gewaehlt + i) % baustoffe.length
+            if (vorrat[baustoffe[naechster]] > 0) {
+                gewaehlt = naechster
+                break
+            }
+        }
+    }
+    return setzeBlock(figurX >> 8, absprungHoehe, figurZ >> 8)
+}
+// Hat die Figur noch irgendeinen Baustoff?
+function hatNochBaustoff(): boolean {
+    for (let i = 0; i < baustoffe.length; i++) {
+        if (vorrat[baustoffe[i]] > 0) return true
+    }
+    return false
+}
+// Wohin kommt die Figur von ihrem Feld auf das Nachbarfeld, nur mit Laufen und Springen? Die Antwort ist die neue Höhe
+// ihrer Füße, oder -1, wenn es nicht geht.
+function erreichteHoehe(x: number, z: number, fuesse: number, nachbarX: number, nachbarZ: number): number {
+    if (nachbarX < 0 || nachbarZ < 0 || nachbarX >= WELT_BREITE || nachbarZ >= WELT_BREITE) return -1
+    if (blockBei(nachbarX, fuesse, nachbarZ) == Block.Luft && blockBei(nachbarX, fuesse + 1, nachbarZ) == Block.Luft) {
+        let y = fuesse
+        while (y > 1 && blockBei(nachbarX, y - 1, nachbarZ) == Block.Luft) y--
+        return y
+    }
+    if (blockBei(nachbarX, fuesse + 1, nachbarZ) == Block.Luft && blockBei(nachbarX, fuesse + 2, nachbarZ) == Block.Luft &&
+        blockBei(x, fuesse + 2, z) == Block.Luft) return fuesse + 1
+    return -1
+}
+// Zählt die Felder, die die Figur mit Laufen und Springen erreicht, aber nur bis zur Grenze für ein Loch. Weniger
+// Felder heißt: Sie sitzt in einem Loch und kommt nur mit Hochbauen oder Graben heraus.
+function zaehleFreiraum(): number {
+    lochBesucht.fill(0)
+    lochX[0] = figurX >> 8
+    lochZ[0] = figurZ >> 8
+    lochFuesse[0] = figurY >> 8
+    lochBesucht[lochX[0] + WELT_BREITE * lochZ[0]] = 1
+    let anzahl = 1
+    let naechstes = 0
+    while (naechstes < anzahl) {
+        let x = lochX[naechstes]
+        let z = lochZ[naechstes]
+        let fuesse = lochFuesse[naechstes]
+        naechstes++
+        for (let seite = 0; seite < 4; seite++) {
+            let nachbarX = x + (seite == 0 ? 1 : seite == 1 ? -1 : 0)
+            let nachbarZ = z + (seite == 2 ? 1 : seite == 3 ? -1 : 0)
+            let erreicht = erreichteHoehe(x, z, fuesse, nachbarX, nachbarZ)
+            if (erreicht < 0 || lochBesucht[nachbarX + WELT_BREITE * nachbarZ] == 1) continue
+            if (anzahl >= LOCH_GRENZE) return LOCH_GRENZE
+            lochBesucht[nachbarX + WELT_BREITE * nachbarZ] = 1
+            lochX[anzahl] = nachbarX
+            lochZ[anzahl] = nachbarZ
+            lochFuesse[anzahl] = erreicht
+            anzahl++
+        }
+    }
+    return anzahl
 }
 function baueBlockAb(x: number, y: number, z: number): boolean {
     let art = blockBei(x, y, z)
@@ -261,6 +364,7 @@ function entpackeSpielstand(daten: Buffer): boolean {
         vorrat[i] = daten.getNumber(NumberFormat.UInt16LE, 18 + i * 2)
     }
     fallTempo = 0
+    springt = false
     ungespeichert = false
     if (figurStoesstAn(figurX, figurY, figurZ)) geheZumStart()
     else amBoden = figurStoesstAn(figurX, figurY - 1, figurZ)

@@ -12,6 +12,8 @@ Calliope Hacker an seinem Schreibtisch; sogar in der Werkbank hängt ein Bild vo
 - **Steuerkreuz hoch und runter:** vorwärts und rückwärts laufen
 - **Steuerkreuz links und rechts:** nach links und rechts drehen
 - **A halten:** den Block vor dem Fadenkreuz abbauen
+- **A kurz tippen:** springen
+- **Im Sprung B tippen:** einen Block unter dich setzen, so kommst du aus jedem Loch heraus
 - **B kurz drücken:** einen Block setzen
 - **B halten und hoch oder runter:** nach oben und unten schauen
 - **B halten und links oder rechts:** anderen Baustoff wählen

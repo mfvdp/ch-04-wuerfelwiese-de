@@ -17,7 +17,7 @@ Die Dateien des Spiels:
 - `film.ts`: Das Intro mit Studiokarte und Titel.
 - `ton.ts`: Die Klänge des Spiels: kurz, selbst erzeugt, ohne Audiodateien und ohne blockierendes Abspielen (alles läuft
   im Hintergrund).
-- `training.ts`: Das Training in sieben Schritten auf einem abgetrennten Platz.
+- `training.ts`: Das Training in acht Schritten auf einem abgetrennten Platz.
 - `hacker.ts`: Die Bilder des Calliope Hackers, in den Farben der Palette dieses Spiels.
 - `main.ts`: Start, Steuerung, Werkbank und Anzeige.
 
@@ -28,8 +28,8 @@ Die Dateien des Spiels:
 2. `bereiteFilmVor` richtet das Intro ein: Flug zwischen schwebenden Inseln, Flug durch ein Tor, die Karte „Calliope
    Hacker präsentiert“ und der Spieltitel. `zeichneFilm` malt es, `aktualisiereFilm` lässt die Zeit laufen. Mit A
    springst du zur nächsten Station, mit MENU überspringst du alles.
-3. Danach beginnt beim ersten Mal das Training (`starteTraining`, sieben kleine Aufgaben auf einem abgetrennten Platz),
-   sonst erscheint das Titelbild.
+3. Danach beginnt beim ersten Mal das Training (`starteTraining`, acht kleine Aufgaben auf einem abgetrennten Platz, die
+   letzte: aus einem Loch springen), sonst erscheint das Titelbild.
 4. In jedem Takt rechnet `aktualisiereSpiel` weiter: Tasten lesen, Figur bewegen (`rechnePhysik`), zielen
    (`aktualisiereZiel`), abbauen und setzen, Spielstand ab und zu speichern.
 5. Die Funktion in `scene.createRenderable` zeichnet jedes Bild: die Welt (`zeichneWeltBild`, nur neu berechnet, wenn
